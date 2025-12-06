@@ -16,7 +16,8 @@ import type {
   CanvasState,
   InteractionMode,
   ShapeVariant,
-  GroupElement
+  GroupElement,
+  CanvasBaseElement,
 } from "../types/canvas"
 
 /**
@@ -99,10 +100,39 @@ const getInitialState = (): CanvasState => {
 
     const parsed = JSON.parse(stored)
 
+    const ensureCanvasProperties = (elements: CanvasElement[]): CanvasElement[] => {
+      return elements.map((elem) => {
+        if (elem.type === 'canvas') {
+          const canvasElement = elem as CanvasBaseElement
+          return {
+            ...canvasElement,
+            grid: canvasElement.grid || {
+              enabled: true,
+              size: 40,
+              color: '#49A0E2',
+              mainLineColor: '#000000',
+              gap: 8,
+            },
+            shadow: canvasElement.shadow || {
+              enabled: true,
+              offsetX: 15,
+              offsetY: 15,
+              blur: 0,
+              color: '#E0E0E0',
+            }
+          };
+        }
+        return elem;
+      })
+    }
+
+    const elements = Array.isArray(parsed?.elements) ? parsed.elements : [];
+    const safeElements = ensureCanvasProperties(elements);
+
     // 状态恢复
     return {
       ...fallback,
-      elements: Array.isArray(parsed?.elements) ? parsed.elements : [],
+      elements: safeElements,
       selectedIds: Array.isArray(parsed?.selectedIds) ? parsed.selectedIds : [],
       pan:
         parsed?.pan && typeof parsed.pan.x === "number" && typeof parsed.pan.y === "number"

@@ -10,6 +10,7 @@ import {
   Graphics,
   FederatedPointerEvent,
   Rectangle,
+  Color,
 } from "pixi.js"
 import { useCanvas } from "../../store/CanvasProvider"
 import type { CanvasBaseElement, CanvasElement, GroupElement } from "../../types/canvas"
@@ -74,8 +75,23 @@ export const PixiCanvas = () => {
     width: canvasBaseSize.width,
     height: canvasBaseSize.height,
     rotation: 0,
+    opacity: 1,
     fill: '#FFFFFF',
     locked: true,
+    grid: {
+      enabled: true,
+      size: 40,
+      color: '#49A0E2',
+      mainLineColor: '#E0E0E0',
+      gap: 8,
+    },
+    shadow: {
+      enabled: true,
+      offsetX: 15,
+      offsetY: 15,
+      blur: 0,
+      color: '#000000',
+    }
   }
 
   const rotateRef = useRef<{
@@ -203,6 +219,48 @@ export const PixiCanvas = () => {
     },
     []
   )
+
+
+  const handleBackgroundPointerDown = useCallback((
+    event: FederatedPointerEvent,
+    isOnCanvas: boolean
+  ) => {
+    if (stateRef.current.interactionMode === "pan") {
+      panRef.current = {
+        lastPointer: { x: event.global.x, y: event.global.y },
+      }
+      const background = backgroundRef.current
+      if (background) {
+        background.cursor = "grabbing"
+      }
+    }
+    else if (stateRef.current.interactionMode === "select") {
+      const nativeEvent = event.originalEvent as unknown as MouseEvent;
+      
+      // 只有当在画布区域内时才允许框选
+      if (isOnCanvas && !(nativeEvent.shiftKey || nativeEvent.metaKey || nativeEvent.ctrlKey)) {
+        const content = contentRef.current;
+        if (!content) return;
+        
+        const localPos = event.getLocalPosition(content);
+        selectionStartRef.current = { x: localPos.x, y: localPos.y };
+        isSelectedRef.current = true;
+
+        const selectionBox = new Graphics();
+        selectionBox.lineStyle(1, SELECTION_COLOR, 0.8);
+        selectionBox.beginFill(SELECTION_COLOR, 0.1);
+        selectionBox.drawRect(0, 0, 0, 0);
+        selectionBox.endFill();
+        selectionBox.zIndex = 150;
+        content.addChild(selectionBox);
+        selectionBoxRef.current = selectionBox;
+      } else {
+        clearSelection()
+      }
+    } else {
+      clearSelection()
+    }
+  }, [clearSelection])
 
   const handleElementPointerDown = useCallback(
     (event: FederatedPointerEvent, elementId: string) => {
@@ -509,19 +567,69 @@ export const PixiCanvas = () => {
     const canvasBaseElement = state.elements.find(el => el.type === 'canvas') as CanvasBaseElement
     if (canvasBaseElement) {
       const canvasBase = new Graphics()
-      canvasBase.beginFill( canvasBaseElement.fill === 'transparent' 
-        ? 0xFFFFFF 
-        : parseInt(canvasBaseElement.fill.slice(1), 16) )
-      canvasBase.drawRect(
-        canvasBaseElement.x,
-        canvasBaseElement.y,
-        canvasBaseElement.width,
-        canvasBaseElement.height
-      )
-      canvasBase.endFill()
+      const {x, y, width, height, grid, shadow} = canvasBaseElement
+
+      // 绘制阴影
+      if (shadow.enabled) {
+        const shadowGraphics = new Graphics()
+        shadowGraphics.rect(x + shadow.offsetX, y + shadow.offsetY, width, height)
+        shadowGraphics.fill({ color: new Color(shadow.color).toNumber(), alpha: 1})
+        shadowGraphics.zIndex = -3 // 放在最底层
+        content.addChild(shadowGraphics)
+      }
+
+      // 绘制画布底色
+      canvasBase.rect(x, y, width, height)
+      canvasBase.fill({ color: 0xFFFFFF, alpha: 1 })
+
+      // 绘制网格线
+      if (grid.enabled) {
+        const gridSize = grid.size
+        const gridGap = grid.gap
+
+        // 绘制副线
+        canvasBase.stroke({ width: 1, color: new Color(grid.color).toNumber(), alpha: 0.5})
+        for (let i = 0; i <= width; i += gridSize){
+          const lineX = x + i
+          canvasBase.moveTo(lineX, y)
+          canvasBase.lineTo(lineX, y + height)
+        }
+        for (let j = 0; j <= height; j += gridSize){
+          const lineY = y + j
+          canvasBase.moveTo(x, lineY)
+          canvasBase.lineTo(x + width, lineY)
+        }
+
+        // 绘制主线
+        if (grid.gap > 1) {
+          canvasBase.stroke({ width: 1.2, color: new Color(grid.mainLineColor).toNumber(), alpha: 0.7})
+          for (let i = 0; i <= width; i += gridSize * gridGap){
+            const lineX = x + i
+            canvasBase.moveTo(lineX, y)
+            canvasBase.lineTo(lineX, y + height)
+          }
+          for (let j = 0; j <= height; j += gridSize * gridGap){
+            const lineY = y + j
+            canvasBase.moveTo(x, lineY)
+            canvasBase.lineTo(x + width, lineY)
+          }
+        }
+      }
+
+      // 绘制画布边框
+      canvasBase.stroke({ width: 2, color: 0x000000, alpha: 0.5 })
+      canvasBase.rect(x, y, width, height)
+
+      // 画布层的属性
+      canvasBase.zIndex = -2
       canvasBase.alpha = 1
-      canvasBase.zIndex = -1
-      canvasBase.eventMode = 'none'
+      canvasBase.eventMode = 'static' // 允许在画布层点击交互，后续有逻辑进行跳过，防止画布层本身被选中
+      canvasBase.hitArea = new Rectangle(x, y, width, height)
+
+      canvasBase.on('pointerdown', (event: FederatedPointerEvent) => {
+        handleBackgroundPointerDown(event, true)
+      })
+
       content.addChild(canvasBase)
       canvasBaseRef.current = canvasBase
     }
@@ -686,7 +794,7 @@ export const PixiCanvas = () => {
       if (!app || !background) return
       background.clear()
       background.rect(0, 0, app.screen.width, app.screen.height)
-      background.fill({ color: 0xffffff, alpha: 0 })
+      background.fill({ color: 0xffffff, alpha: 1 })
       background.hitArea = app.screen
     }
 
@@ -695,9 +803,10 @@ export const PixiCanvas = () => {
       const app = new Application()
       await app.init({
         antialias: true,
-        backgroundAlpha: 0,
+        backgroundAlpha: 1,
         resolution: window.devicePixelRatio || 1,
         resizeTo: wrapperRef.current,
+        backgroundColor: 0xFCFCFC,
       })
       if (destroyed) {
         app.destroy()
@@ -755,33 +864,26 @@ export const PixiCanvas = () => {
       resizeObserverRef.current = resizeObserver
 
       background.on("pointerdown", (event: FederatedPointerEvent) => {
-        if (event.originalEvent && (event.originalEvent as any).button === 2) {
-          event.preventDefault();
-          return;
+       const content = contentRef.current
+        if (!content) return
+        
+        // 检查点击位置是否在画布内
+        const localPos = event.getLocalPosition(content)
+        const canvasBaseElement = stateRef.current.elements.find(el => el.type === 'canvas') as CanvasBaseElement
+        let isOnCanvas = false
+        
+        if (canvasBaseElement) {
+          const canvasRect = new Rectangle(
+            canvasBaseElement.x,
+            canvasBaseElement.y,
+            canvasBaseElement.width,
+            canvasBaseElement.height
+          )
+          isOnCanvas = canvasRect.contains(localPos.x, localPos.y)
         }
-        if (stateRef.current.interactionMode === "pan") {
-          panRef.current = {
-            lastPointer: { x: event.global.x, y: event.global.y },
-          }
-          background.cursor = "grabbing"
-        }
-        else if (stateRef.current.interactionMode === "select") {
-          const nativeEvent = event.originalEvent as unknown as MouseEvent;
-          if (!(nativeEvent.shiftKey || nativeEvent.metaKey || nativeEvent.ctrlKey) && event.target === background) {
-            const localPos = event.getLocalPosition(content);
-            selectionStartRef.current = { x: localPos.x, y: localPos.y };
-            isSelectedRef.current = true;
-
-            const selectionBox = new Graphics();
-            selectionBox.lineStyle(1, SELECTION_COLOR, 0.8);
-            selectionBox.fill({ color: SELECTION_COLOR, alpha: 0.1 });
-            selectionBox.zIndex = 150;
-            content.addChild(selectionBox);
-            selectionBoxRef.current = selectionBox;
-          }
-        } else {
-          clearSelection()
-        }
+        
+        // 使用统一的处理函数
+        handleBackgroundPointerDown(event, isOnCanvas)
       })
 
       preventContextMenu = (e: Event) => { e.preventDefault(); };

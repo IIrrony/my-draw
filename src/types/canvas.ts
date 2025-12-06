@@ -86,6 +86,7 @@ export type InteractionMode = "select" | "pan"
  */
 export interface ElementBase {
   id: string
+  type: 'shape' | 'text' | 'image' | 'group' | 'canvas'
   name: string
   x: number
   y: number
@@ -309,7 +310,7 @@ export interface GroupElement extends ElementBase {
 /**
  * 画布元素联合类型
  */
-export interface CanvasBaseElement {
+export interface CanvasBaseElement extends ElementBase {
   id: string
   type: 'canvas'
   name: string
@@ -320,6 +321,20 @@ export interface CanvasBaseElement {
   rotation: number
   fill: string // 画布颜色
   locked?: boolean // 画布是否锁定
+  grid: {
+    enabled: boolean // 画布是否显示网格
+    size: number // 网格尺寸（像素）
+    color: string // 网格颜色
+    mainLineColor: string // 主网格线颜色
+    gap: number // 主线间距
+  }
+  shadow: {
+    enabled: boolean // 画布是否显示阴影
+    offsetX: number // 阴影水平偏移量（像素）
+    offsetY: number // 阴影垂直偏移量（像素）
+    blur: number // 阴影模糊半径（像素）
+    color: string // 阴影颜色
+  }
 }
 
 /**

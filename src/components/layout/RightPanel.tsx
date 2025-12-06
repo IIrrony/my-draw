@@ -20,7 +20,7 @@
 import type { ReactNode } from "react"
 import React from "react"
 import { useCanvas } from "../../store/CanvasProvider"
-import type { CanvasElement, ShapeElement, TextElement, ImageElement, GroupElement } from "../../types/canvas"
+import type { CanvasElement, ShapeElement, TextElement, ImageElement, GroupElement, CanvasBaseElement } from "../../types/canvas"
 
 /**
  * 表单字段容器组件
@@ -346,6 +346,180 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
     {children}
   </section>
 )
+
+/**
+ * 画布层控制组件
+ */
+const CanvasControls = ({
+  element,
+  update,
+}: {
+  element: CanvasBaseElement
+  update: (changes: Partial<CanvasBaseElement>) => void
+}) => {
+  return (
+    <div className="space-y-4">
+      <Section title="画布属性">
+        <div className="space-y-3">
+          {/* 画布尺寸 */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="宽度">
+              <NumberInput
+                value={element.width}
+                onChange={value => update({width: value})}
+                min={400}
+                max={5000}
+                step={10}
+              />
+            </Field>
+            <Field label="高度">
+              <NumberInput
+                value={element.height}
+                onChange={value => update({height: value})}
+                min={300}
+                max={5000}
+                step={10}
+              />
+            </Field>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="网格设置">
+        <div className="space-y-3">
+          {/* 网格显示开关 */}
+          <label className="flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-600">显示网格</span>
+            <input
+              type='checkbox'
+              checked={element.grid.enabled}
+              onChange={ e => 
+                update({
+                  grid: { ...element.grid, enabled: e.target.checked}
+                })
+              }
+              className="h-4 w-4 rounded border-canvas-border text-canvas-accent"
+            />
+          </label>
+
+          {/* 网格大小 */}
+          <Field label="网格大小">
+            <div className="flex items-center gap-2">
+              <input
+                type='range'
+                min={10}
+                max={100}
+                step={5}
+                value={element.grid.size}
+                onChange={ e => 
+                  update({
+                    grid: { ...element.grid, size: Number(e.target.value)}
+                  })
+                }
+                className="flex-1"
+                disabled={!element.grid.enabled}
+              />
+              <span className="w-10 text-center text-sm">{element.grid.size}px</span>
+            </div>
+          </Field>
+
+          {/* 主线间隔 */}
+          <Field label="主线间隔">
+            <div className="flex items-center gap-2">
+              <input
+                type='range'
+                min={2}
+                max={20}
+                step={1}
+                value={element.grid.gap}
+                onChange={ e => 
+                  update({
+                    grid: { ...element.grid, gap: Number(e.target.value)}
+                  })
+                }
+                className="flex-1"
+                disabled={!element.grid.enabled}
+              />
+              <span className="w-10 text-center text-sm">{element.grid.gap}</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              每隔 {element.grid.gap} 条副线绘制一条主线。
+            </p>
+          </Field>
+
+          {/* 网格线颜色 */}
+          <Field label="网格线颜色">
+            <ColorInput
+              value={element.grid.mainLineColor}
+              onChange={(color) => 
+                update({ grid: { ...element.grid, mainLineColor: color } })
+              }
+            />
+          </Field>
+        </div>
+      </Section>
+
+      <Section title="投影设置">
+        <div className="space-y-3">
+          {/* 投影开关 */}
+          <label className="flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-600">显示投影</span>
+            <input
+              type="checkbox"
+              checked={element.shadow.enabled}
+              onChange={(e) => 
+                update({ 
+                  shadow: { ...element.shadow, enabled: e.target.checked }
+                })
+              }
+              className="h-4 w-4 rounded border-canvas-border text-canvas-accent"
+            />
+          </label>
+
+          {/* 投影偏移 */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="X偏移">
+              <NumberInput
+                value={element.shadow.offsetX}
+                onChange={(value) => 
+                  update({ 
+                    shadow: { ...element.shadow, offsetX: value }
+                  })
+                }
+                min={0}
+                max={50}
+                step={1}
+              />
+            </Field>
+            <Field label="Y偏移">
+              <NumberInput
+                value={element.shadow.offsetY}
+                onChange={(value) => 
+                  update({ 
+                    shadow: { ...element.shadow, offsetY: value }
+                  })
+                }
+                min={0}
+                max={50}
+                step={1}                
+              />
+            </Field>
+          </div>
+
+          {/* 投影颜色 */}
+          <Field label="投影颜色">
+            <ColorInput
+              value={element.shadow.color}
+              onChange={(color) => 
+                update({ shadow: { ...element.shadow, color } })
+              }
+            />
+          </Field>
+        </div>
+      </Section>
+    </div>
+  )
+}
 
 /**
  * 图形元素属性控制组件
@@ -843,16 +1017,55 @@ export const RightPanel = () => {
 
   // 未选中元素时显示的空状态
   if (!selectedElement) {
+    const canvasElement = state.elements.find(el => el.type === 'canvas') as CanvasBaseElement;
     return (
       <aside className="flex w-80 flex-col gap-3 border-l border-canvas-border bg-white/70 p-6 text-sm text-slate-500">
-        <p className="font-semibold text-slate-700">属性</p>
-        <p>请选择画布中的元素以编辑属性。</p>
-        <ul className="list-disc space-y-1 pl-4 text-xs text-slate-400">
-          <li>支持图形、文字、图片基础属性调整</li>
-          <li>可在左侧插入新的画布元素</li>
-        </ul>
-        <p>选中单元素，支持其类型下的所有属性编辑</p>
-        <p>选中多元素，支持统一设置宽高、旋转和不透明度</p>
+        {/* 画布控制面板头部 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-400">画布设置</p>
+          <p className="text-base font-semibold text-slate-900">
+            {canvasElement.name}
+          </p>
+          <p className="text-xs text-slate-500">
+            未选中任何元素时，可编辑画布属性
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              // 快速重置画布样式
+              updateElement(canvasElement.id, {
+                fill: '#FFFFFF',
+                grid: {
+                  enabled: true,
+                  size: 40,
+                  color: '#4A90E2',
+                  mainLineColor: '#E0E0E0',
+                  gap: 8,
+                },
+                shadow: {
+                  enabled: true,
+                  offsetX: 15,
+                  offsetY: 15,
+                  blur: 0,
+                  color: '#E0E0E0',
+                }
+              } as Partial<CanvasBaseElement>);
+            }}
+            className="text-xs font-medium text-blue-600 hover:text-blue-700"
+          >
+            重置
+          </button>
+        </div>
+      </div>
+
+      {/* 使用相同的 CanvasControls 组件 */}
+      <CanvasControls
+        element={canvasElement}
+        update={(changes) => updateElement(canvasElement.id, changes)}
+      />
       </aside>
     )
   }
