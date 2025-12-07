@@ -210,14 +210,6 @@ export const PixiCanvas = () => {
 
   // --- 7. Callbacks: 交互逻辑 ---
 
-  const renderCanvasBase = useCallback(() => {
-    // 重绘画布层
-    const content = contentRef.current
-    const app = appRef.current
-    if (!content || !app) return
-    setRenderPage(prev => prev + 1)
-  }, [])
-
   const handleRotateStart = useCallback((event: FederatedPointerEvent, id: string) => {
     // 跳过画布
     const elem = stateRef.current.elements.find(el => el.id === id)
