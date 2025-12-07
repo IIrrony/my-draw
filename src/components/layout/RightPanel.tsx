@@ -21,6 +21,7 @@ import type { ReactNode } from "react"
 import React from "react"
 import { useCanvas } from "../../store/CanvasProvider"
 import type { CanvasElement, ShapeElement, TextElement, ImageElement, GroupElement, CanvasBaseElement } from "../../types/canvas"
+import { createDefaultCanvasBaseElement } from "../canvas/canvasBaseUtils"
 
 /**
  * 表单字段容器组件
@@ -1017,7 +1018,8 @@ export const RightPanel = () => {
 
   // 未选中元素时显示的空状态
   if (!selectedElement) {
-    const canvasElement = state.elements.find(el => el.type === 'canvas') as CanvasBaseElement;
+    const rawCanvasElement = state.elements.find(el => el.type === 'canvas') as CanvasBaseElement;
+    const canvasElement = rawCanvasElement || createDefaultCanvasBaseElement();
     return (
       <aside className="flex w-80 flex-col gap-3 border-l border-canvas-border bg-white/70 p-6 text-sm text-slate-500">
         {/* 画布控制面板头部 */}
