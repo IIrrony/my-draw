@@ -19,6 +19,7 @@ import type {
   GroupElement,
   CanvasBaseElement,
 } from "../types/canvas"
+import { createDefaultCanvasBaseElement } from "../components/canvas/canvasBaseUtils"
 
 /**
  * 生成唯一标识符
@@ -104,22 +105,12 @@ const getInitialState = (): CanvasState => {
       return elements.map((elem) => {
         if (elem.type === 'canvas') {
           const canvasElement = elem as CanvasBaseElement
+          const defaultElem = createDefaultCanvasBaseElement()
           return {
+            ...defaultElem,
             ...canvasElement,
-            grid: canvasElement.grid || {
-              enabled: true,
-              size: 40,
-              color: '#49A0E2',
-              mainLineColor: '#000000',
-              gap: 8,
-            },
-            shadow: canvasElement.shadow || {
-              enabled: true,
-              offsetX: 15,
-              offsetY: 15,
-              blur: 0,
-              color: '#E0E0E0',
-            }
+            grid: { ...defaultElem.grid, ...canvasElement.grid },
+            shadow: { ...defaultElem.shadow, ...canvasElement.shadow },
           };
         }
         return elem;

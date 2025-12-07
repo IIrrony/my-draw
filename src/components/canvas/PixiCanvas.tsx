@@ -26,6 +26,7 @@ import {
   getBoundingBox,
 } from "./pixiUtils"
 import { calculateSnap, type GuideLine } from "./snapUtils"
+import { createDefaultCanvasBaseElement, } from "./canvasBaseUtils"
 import {
   createBoundsHandlesLayer,
   createResizeHandlesLayer,
@@ -62,37 +63,9 @@ export const PixiCanvas = () => {
   const backgroundRef = useRef<Graphics | null>(null)
   const guidesRef = useRef<Graphics | null>(null)
   const currentGuidesRef = useRef<GuideLine[]>([])
-
   const canvasBaseRef = useRef<Graphics | null>(null)
-  const [canvasBaseSize, setCanvasBaseSize] = useState({ width: 1200, height: 800 })
 
-  const defaultCanvasElement: CanvasBaseElement = {
-    id: '__canvas_base__',
-    type: 'canvas',
-    name: '画布',
-    x: 50,
-    y: 50,
-    width: canvasBaseSize.width,
-    height: canvasBaseSize.height,
-    rotation: 0,
-    opacity: 1,
-    fill: '#FFFFFF',
-    locked: true,
-    grid: {
-      enabled: true,
-      size: 40,
-      color: '#49A0E2',
-      mainLineColor: '#E0E0E0',
-      gap: 8,
-    },
-    shadow: {
-      enabled: true,
-      offsetX: 15,
-      offsetY: 15,
-      blur: 0,
-      color: '#000000',
-    }
-  }
+  const defaultCanvasElement: CanvasBaseElement = createDefaultCanvasBaseElement()
 
   const rotateRef = useRef<{
     id: string
@@ -140,6 +113,87 @@ export const PixiCanvas = () => {
   // --- 4. 辅助函数 ---
   const toRad = (deg: number) => deg * (Math.PI / 180);
   const toDeg = (rad: number) => rad * (180 / Math.PI);
+  const getSafeCanvasBaseElement = (elements: CanvasElement[]): CanvasBaseElement => {
+    const canvasElement = elements.find(el => el.type === 'canvas') as CanvasBaseElement;
+    if (canvasElement){
+      return {
+        // 必要性保证
+        ...canvasElement,
+        grid: canvasElement.grid ?? {
+        enabled: true,
+        size: 40,
+        color: '#49A0E2',
+        mainLineColor: '#E0E0E0',
+        gap: 8,
+        },
+        shadow: canvasElement.shadow ?? {
+          enabled: true,
+          offsetX: 15,
+          offsetY: 15,
+          blur: 0,
+          color: '#000000',
+        }
+      };
+    }
+    // 没有画布元素，提供一个默认画布元素
+    return {
+      id: '__canvas_base__',
+      type: 'canvas',
+      name: '画布',
+      x: 50,
+      y: 50,
+      width: 1200,
+      height: 800,
+      rotation: 0,
+      opacity: 1,
+      fill: '#FFFFFF',
+      locked: true,
+      grid: {
+        enabled: true,
+        size: 40,
+        color: '#49A0E2',
+        mainLineColor: '#E0E0E0',
+        gap: 8,
+      },
+      shadow: {
+        enabled: true,
+        offsetX: 15,
+        offsetY: 15,
+        blur: 0,
+        color: '#000000',
+      }
+    };
+  }
+  // 类型守卫函数
+  const isCanvasBaseElement = (element: CanvasElement): element is CanvasBaseElement => {
+    return element.type === 'canvas';
+  };
+  // 安全访问画布属性的函数
+  const getCanvasGrid = (element: CanvasElement) => {
+    if (isCanvasBaseElement(element)) {
+      return element.grid || {
+        enabled: true,
+        size: 40,
+        color: '#49A0E2',
+        mainLineColor: '#E0E0E0',
+        gap: 8,
+      };
+    }
+    return null;
+  };
+
+  const getCanvasShadow = (element: CanvasElement) => {
+    if (isCanvasBaseElement(element)) {
+      return element.shadow || {
+        enabled: true,
+        offsetX: 15,
+        offsetY: 15,
+        blur: 0,
+        color: '#000000',
+      };
+    }
+    return null;
+  };
 
   // --- 5. Effect: 初始化状态标记 ---
   useEffect(() => {
@@ -155,6 +209,14 @@ export const PixiCanvas = () => {
   }, [state])
 
   // --- 7. Callbacks: 交互逻辑 ---
+
+  const renderCanvasBase = useCallback(() => {
+    // 重绘画布层
+    const content = contentRef.current
+    const app = appRef.current
+    if (!content || !app) return
+    setRenderPage(prev => prev + 1)
+  }, [])
 
   const handleRotateStart = useCallback((event: FederatedPointerEvent, id: string) => {
     // 跳过画布
@@ -247,11 +309,10 @@ export const PixiCanvas = () => {
         isSelectedRef.current = true;
 
         const selectionBox = new Graphics();
-        selectionBox.lineStyle(1, SELECTION_COLOR, 0.8);
-        selectionBox.beginFill(SELECTION_COLOR, 0.1);
-        selectionBox.drawRect(0, 0, 0, 0);
-        selectionBox.endFill();
-        selectionBox.zIndex = 150;
+        selectionBox.setStrokeStyle({width: 1, color: SELECTION_COLOR, alpha: 0.8});
+        selectionBox.rect(0, 0, 0, 0);
+        selectionBox.fill({color: SELECTION_COLOR, alpha: 0.1});
+        selectionBox.zIndex = 500;
         content.addChild(selectionBox);
         selectionBoxRef.current = selectionBox;
       } else {
@@ -399,7 +460,7 @@ export const PixiCanvas = () => {
   )
 
   // 边界扩展
-   const handleExpandCanvas = useCallback((moveElementIds: string[]) => {
+   const handleExpandCanvas = useCallback(() => {
     const elements = stateRef.current.elements
     const canvasBase = elements.find(el => el.type === 'canvas') as CanvasBaseElement
     if (!canvasBase) return
@@ -414,17 +475,17 @@ export const PixiCanvas = () => {
     let maxX = -Infinity
     let maxY = -Infinity
     
-    let hasElements = false
+    let hasMovedElements = false
     elements.forEach(el => {
       if (el.type === 'canvas') return
       minX = Math.min(minX, el.x)
       minY = Math.min(minY, el.y)
       maxX = Math.max(maxX, el.x + el.width)
       maxY = Math.max(maxY, el.y + el.height)
-      hasElements = true
+      hasMovedElements = true
     })
 
-    if (!hasElements) return
+    if (!hasMovedElements) return
 
     // 2. 计算所需的安全边界
     const safeMinX = minX - margin
@@ -532,49 +593,19 @@ export const PixiCanvas = () => {
     content.removeChildren().forEach((child) => child.destroy({ children: true }))
     content.sortableChildren = true
 
-    elements.forEach(async (element) => {
-      const selected = state.selectedIds.includes(element.id)
-      const node = await createShape(element, state.interactionMode, (event) =>
-        handleElementPointerDown(event, element.id)
-      )
-      node.zIndex = 1
-      content.addChild(node)
-
-      if (selected && currentState.selectedIds.length === 1 && currentState.interactionMode === "select") {
-        const handlesLayer = createResizeHandlesLayer(
-          element,
-          currentState.zoom,
-          resizeRef.current?.direction ?? null,
-          state.selectedIds,
-          handleResizeStart,
-          handleRotateStart
-        )
-        content.addChild(handlesLayer)
-      }
-    })
-  }, [handleElementPointerDown, handleResizeStart, handleRotateStart, state.interactionMode, state.selectedIds])
-
-  // --- 9. Effect: 主渲染循环 (监听 state 变化) ---
-  useEffect(() => {
-    const content = contentRef.current
-    const app = appRef.current
-    if (!content || !app) return
-
-    content.removeChildren().forEach((child) => child.destroy({ children: true }))
-    content.sortableChildren = true
-
-    // 0. 首先渲染画布层
-    const canvasBaseElement = state.elements.find(el => el.type === 'canvas') as CanvasBaseElement
+    const canvasBaseElement = getSafeCanvasBaseElement(elements)
     if (canvasBaseElement) {
       const canvasBase = new Graphics()
-      const {x, y, width, height, grid, shadow} = canvasBaseElement
+      const {x, y, width, height} = canvasBaseElement
+      const grid = getCanvasGrid(canvasBaseElement)
+      const shadow = getCanvasShadow(canvasBaseElement)
 
       // 绘制阴影
-      if (shadow.enabled) {
+      if (shadow?.enabled) {
         const shadowGraphics = new Graphics()
         shadowGraphics.rect(x + shadow.offsetX, y + shadow.offsetY, width, height)
         shadowGraphics.fill({ color: new Color(shadow.color).toNumber(), alpha: 1})
-        shadowGraphics.zIndex = -3 // 放在最底层
+        shadowGraphics.zIndex = -3
         content.addChild(shadowGraphics)
       }
 
@@ -583,7 +614,7 @@ export const PixiCanvas = () => {
       canvasBase.fill({ color: 0xFFFFFF, alpha: 1 })
 
       // 绘制网格线
-      if (grid.enabled) {
+      if (grid?.enabled) {
         const gridSize = grid.size
         const gridGap = grid.gap
 
@@ -623,7 +654,7 @@ export const PixiCanvas = () => {
       // 画布层的属性
       canvasBase.zIndex = -2
       canvasBase.alpha = 1
-      canvasBase.eventMode = 'static' // 允许在画布层点击交互，后续有逻辑进行跳过，防止画布层本身被选中
+      canvasBase.eventMode = 'static'
       canvasBase.hitArea = new Rectangle(x, y, width, height)
 
       canvasBase.on('pointerdown', (event: FederatedPointerEvent) => {
@@ -634,9 +665,8 @@ export const PixiCanvas = () => {
       canvasBaseRef.current = canvasBase
     }
 
-    // 1. 渲染元素 (注意过滤画布元素)
-    const baseElements = state.elements.filter(el => el.type!== 'canvas')
-    baseElements.forEach(async (element) => {
+    const otherElements = elements.filter(el => el.type!== 'canvas')
+    otherElements.forEach(async (element) => {
       const selected = state.selectedIds.includes(element.id)
       const node = await createShape(element, state.interactionMode, (event) =>
         handleElementPointerDown(event, element.id)
@@ -644,11 +674,119 @@ export const PixiCanvas = () => {
       node.zIndex = 1
       content.addChild(node)
 
-      if (selected) {
-        const outline = createSelectionOutline(element)
-        content.addChild(outline)
+      if (selected && currentState.selectedIds.length === 1 && currentState.interactionMode === "select") {
+        const handlesLayer = createResizeHandlesLayer(
+          element,
+          currentState.zoom,
+          resizeRef.current?.direction ?? null,
+          state.selectedIds,
+          handleResizeStart,
+          handleRotateStart
+        )
+        content.addChild(handlesLayer)
       }
     })
+  }, [handleElementPointerDown, handleResizeStart, handleRotateStart, state.interactionMode, state.selectedIds])
+
+  // --- 9. Effect: 主渲染循环 (监听 state 变化) ---
+  useEffect(() => {
+    const content = contentRef.current
+    const app = appRef.current
+    if (!content || !app) return
+
+    renderElements(content, state.elements, state)
+
+    // content.removeChildren().forEach((child) => child.destroy({ children: true }))
+    // content.sortableChildren = true
+
+    // // 0. 首先渲染画布层
+    // const canvasBaseElement = getSafeCanvasBaseElement(state.elements)
+    // if (canvasBaseElement) {
+    //   const canvasBase = new Graphics()
+    //   const {x, y, width, height} = canvasBaseElement
+    //   const grid = getCanvasGrid(canvasBaseElement)
+    //   const shadow = getCanvasShadow(canvasBaseElement)
+
+    //   // 绘制阴影
+    //   if (shadow?.enabled) {
+    //     const shadowGraphics = new Graphics()
+    //     shadowGraphics.rect(x + shadow.offsetX, y + shadow.offsetY, width, height)
+    //     shadowGraphics.fill({ color: new Color(shadow.color).toNumber(), alpha: 1})
+    //     shadowGraphics.zIndex = -3 // 放在最底层
+    //     content.addChild(shadowGraphics)
+    //   }
+
+    //   // 绘制画布底色
+    //   canvasBase.rect(x, y, width, height)
+    //   canvasBase.fill({ color: 0xFFFFFF, alpha: 1 })
+
+    //   // 绘制网格线
+    //   if (grid?.enabled) {
+    //     const gridSize = grid.size
+    //     const gridGap = grid.gap
+
+    //     // 绘制副线
+    //     canvasBase.stroke({ width: 1, color: new Color(grid.color).toNumber(), alpha: 0.5})
+    //     for (let i = 0; i <= width; i += gridSize){
+    //       const lineX = x + i
+    //       canvasBase.moveTo(lineX, y)
+    //       canvasBase.lineTo(lineX, y + height)
+    //     }
+    //     for (let j = 0; j <= height; j += gridSize){
+    //       const lineY = y + j
+    //       canvasBase.moveTo(x, lineY)
+    //       canvasBase.lineTo(x + width, lineY)
+    //     }
+
+    //     // 绘制主线
+    //     if (grid.gap > 1) {
+    //       canvasBase.stroke({ width: 1.2, color: new Color(grid.mainLineColor).toNumber(), alpha: 0.7})
+    //       for (let i = 0; i <= width; i += gridSize * gridGap){
+    //         const lineX = x + i
+    //         canvasBase.moveTo(lineX, y)
+    //         canvasBase.lineTo(lineX, y + height)
+    //       }
+    //       for (let j = 0; j <= height; j += gridSize * gridGap){
+    //         const lineY = y + j
+    //         canvasBase.moveTo(x, lineY)
+    //         canvasBase.lineTo(x + width, lineY)
+    //       }
+    //     }
+    //   }
+
+    //   // 绘制画布边框
+    //   canvasBase.stroke({ width: 2, color: 0x000000, alpha: 0.5 })
+    //   canvasBase.rect(x, y, width, height)
+
+    //   // 画布层的属性
+    //   canvasBase.zIndex = -2
+    //   canvasBase.alpha = 1
+    //   canvasBase.eventMode = 'static' // 允许在画布层点击交互，后续有逻辑进行跳过，防止画布层本身被选中
+    //   canvasBase.hitArea = new Rectangle(x, y, width, height)
+
+    //   canvasBase.on('pointerdown', (event: FederatedPointerEvent) => {
+    //     handleBackgroundPointerDown(event, true)
+    //   })
+
+    //   content.addChild(canvasBase)
+    //   canvasBaseRef.current = canvasBase
+    // }
+
+    // // 1. 渲染元素 (注意过滤画布元素)
+    // const baseElements = state.elements.filter(el => el.type!== 'canvas')
+    // baseElements.forEach(async (element) => {
+    //   const selected = state.selectedIds.includes(element.id)
+    //   const node = await createShape(element, state.interactionMode, (event) =>
+    //     handleElementPointerDown(event, element.id)
+    //   )
+    //   node.zIndex = 1
+    //   content.addChild(node)
+
+    //   if (selected) {
+    //     const outline = createSelectionOutline(element)
+    //     content.addChild(outline)
+    //   }
+    // })
 
     // 2. 渲染控制层
     if (state.interactionMode === "select" && state.selectedIds.length > 0) {
@@ -717,7 +855,7 @@ export const PixiCanvas = () => {
     handleResizeStart,
     handleRotateStart,
     handleSelectionBoxPointerDown,
-    // renderElements, // 可以不依赖这个，因为逻辑已经内联了
+    renderElements, // 可以不依赖这个，因为逻辑已经内联了
     renderPage,
     isInitialized,
   ])
@@ -840,15 +978,12 @@ export const PixiCanvas = () => {
       backgroundRef.current = background
       registerApp(app)
 
-
+      // 渲染的逻辑
       if (stateRef.current.elements.length === 0) {
         mutateElements(elements => [...elements, defaultCanvasElement])
       }
-
-      if (stateRef.current.elements.length > 0) {
-        renderElements(content, stateRef.current.elements, stateRef.current)
-      }
-      
+      renderElements(content, stateRef.current.elements, stateRef.current)
+ 
       const resizeObserver = new ResizeObserver(() => {
         app.resize()
         updateBackground()
@@ -950,11 +1085,9 @@ export const PixiCanvas = () => {
           }
 
           selectionBox.clear();
-          selectionBox.lineStyle(1, SELECTION_COLOR, 0.8);
-          selectionBox.beginFill(SELECTION_COLOR, 0.1);
+          selectionBox.setStrokeStyle({width: 1, color: SELECTION_COLOR, alpha: 0.8})
+          selectionBox.rect(x, y, width, height)
           selectionBox.fill({ color: SELECTION_COLOR, alpha: 0.1 });
-          selectionBox.drawRect(x, y, width, height);
-          selectionBox.endFill();
           return;
         }
 
@@ -1120,7 +1253,7 @@ export const PixiCanvas = () => {
         }
 
         if (dragRef.current?.moved) {
-          handleExpandCanvas(dragRef.current.ids)
+          handleExpandCanvas()
           currentGuidesRef.current = [];
           if (guidesRef.current) {
             guidesRef.current.clear();
@@ -1134,7 +1267,7 @@ export const PixiCanvas = () => {
         }
 
         if (resizeRef.current?.moved) {
-          handleExpandCanvas(resizeRef.current.ids)
+          handleExpandCanvas()
           mutateElements(
             (elements) => elements,
             {

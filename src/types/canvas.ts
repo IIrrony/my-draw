@@ -319,6 +319,7 @@ export interface CanvasBaseElement extends ElementBase {
   width: number
   height: number
   rotation: number
+  opacity: number
   fill: string // 画布颜色
   locked?: boolean // 画布是否锁定
   grid: {
