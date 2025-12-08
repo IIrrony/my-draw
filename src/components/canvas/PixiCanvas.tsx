@@ -30,7 +30,6 @@ import { createDefaultCanvasBaseElement, } from "./canvasBaseUtils"
 import {
   createBoundsHandlesLayer,
   createResizeHandlesLayer,
-  createSelectionOutline,
   createShape,
   createSolidBoundsOutline,
   createRotateTooltip
@@ -111,7 +110,6 @@ export const PixiCanvas = () => {
   })
 
   // --- 4. 辅助函数 ---
-  const toRad = (deg: number) => deg * (Math.PI / 180);
   const toDeg = (rad: number) => rad * (180 / Math.PI);
   const getSafeCanvasBaseElement = (elements: CanvasElement[]): CanvasBaseElement => {
     const canvasElement = elements.find(el => el.type === 'canvas') as CanvasBaseElement;
@@ -686,99 +684,8 @@ export const PixiCanvas = () => {
     const app = appRef.current
     if (!content || !app) return
 
+    // 1. 渲染画布元素，基础元素
     renderElements(content, state.elements, state)
-
-    // content.removeChildren().forEach((child) => child.destroy({ children: true }))
-    // content.sortableChildren = true
-
-    // // 0. 首先渲染画布层
-    // const canvasBaseElement = getSafeCanvasBaseElement(state.elements)
-    // if (canvasBaseElement) {
-    //   const canvasBase = new Graphics()
-    //   const {x, y, width, height} = canvasBaseElement
-    //   const grid = getCanvasGrid(canvasBaseElement)
-    //   const shadow = getCanvasShadow(canvasBaseElement)
-
-    //   // 绘制阴影
-    //   if (shadow?.enabled) {
-    //     const shadowGraphics = new Graphics()
-    //     shadowGraphics.rect(x + shadow.offsetX, y + shadow.offsetY, width, height)
-    //     shadowGraphics.fill({ color: new Color(shadow.color).toNumber(), alpha: 1})
-    //     shadowGraphics.zIndex = -3 // 放在最底层
-    //     content.addChild(shadowGraphics)
-    //   }
-
-    //   // 绘制画布底色
-    //   canvasBase.rect(x, y, width, height)
-    //   canvasBase.fill({ color: 0xFFFFFF, alpha: 1 })
-
-    //   // 绘制网格线
-    //   if (grid?.enabled) {
-    //     const gridSize = grid.size
-    //     const gridGap = grid.gap
-
-    //     // 绘制副线
-    //     canvasBase.stroke({ width: 1, color: new Color(grid.color).toNumber(), alpha: 0.5})
-    //     for (let i = 0; i <= width; i += gridSize){
-    //       const lineX = x + i
-    //       canvasBase.moveTo(lineX, y)
-    //       canvasBase.lineTo(lineX, y + height)
-    //     }
-    //     for (let j = 0; j <= height; j += gridSize){
-    //       const lineY = y + j
-    //       canvasBase.moveTo(x, lineY)
-    //       canvasBase.lineTo(x + width, lineY)
-    //     }
-
-    //     // 绘制主线
-    //     if (grid.gap > 1) {
-    //       canvasBase.stroke({ width: 1.2, color: new Color(grid.mainLineColor).toNumber(), alpha: 0.7})
-    //       for (let i = 0; i <= width; i += gridSize * gridGap){
-    //         const lineX = x + i
-    //         canvasBase.moveTo(lineX, y)
-    //         canvasBase.lineTo(lineX, y + height)
-    //       }
-    //       for (let j = 0; j <= height; j += gridSize * gridGap){
-    //         const lineY = y + j
-    //         canvasBase.moveTo(x, lineY)
-    //         canvasBase.lineTo(x + width, lineY)
-    //       }
-    //     }
-    //   }
-
-    //   // 绘制画布边框
-    //   canvasBase.stroke({ width: 2, color: 0x000000, alpha: 0.5 })
-    //   canvasBase.rect(x, y, width, height)
-
-    //   // 画布层的属性
-    //   canvasBase.zIndex = -2
-    //   canvasBase.alpha = 1
-    //   canvasBase.eventMode = 'static' // 允许在画布层点击交互，后续有逻辑进行跳过，防止画布层本身被选中
-    //   canvasBase.hitArea = new Rectangle(x, y, width, height)
-
-    //   canvasBase.on('pointerdown', (event: FederatedPointerEvent) => {
-    //     handleBackgroundPointerDown(event, true)
-    //   })
-
-    //   content.addChild(canvasBase)
-    //   canvasBaseRef.current = canvasBase
-    // }
-
-    // // 1. 渲染元素 (注意过滤画布元素)
-    // const baseElements = state.elements.filter(el => el.type!== 'canvas')
-    // baseElements.forEach(async (element) => {
-    //   const selected = state.selectedIds.includes(element.id)
-    //   const node = await createShape(element, state.interactionMode, (event) =>
-    //     handleElementPointerDown(event, element.id)
-    //   )
-    //   node.zIndex = 1
-    //   content.addChild(node)
-
-    //   if (selected) {
-    //     const outline = createSelectionOutline(element)
-    //     content.addChild(outline)
-    //   }
-    // })
 
     // 2. 渲染控制层
     if (state.interactionMode === "select" && state.selectedIds.length > 0) {
