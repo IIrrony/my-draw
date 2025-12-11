@@ -573,16 +573,40 @@ export const PixiCanvas = () => {
       } else if (selectedElements.length === 1) {
         const element = selectedElements[0];
         if (!dragRef.current?.moved) {
-          const handlesLayer = createResizeHandlesLayer(
-            element,
-            state.zoom,
-            resizeRef.current?.direction ?? null,
-            state.selectedIds,
-            handleResizeStart,
-            handleRotateStart
-          );
-          handlesLayer.zIndex = 51; // 确保在遮罩容器之上
-          content.addChild(handlesLayer);
+          // 组元素使用 createBoundsHandlesLayer（不旋转），其他元素使用 createResizeHandlesLayer
+          if (element.type === "group") {
+            const outline = createSolidBoundsOutline({
+              x: element.x,
+              y: element.y,
+              width: element.width,
+              height: element.height,
+              rotation: 0,
+            });
+            outline.zIndex = 50;
+            content.addChild(outline);
+
+            const handlesLayer = createBoundsHandlesLayer({
+              bounds: { x: element.x, y: element.y, width: element.width, height: element.height, rotation: 0 },
+              zoom: state.zoom,
+              activeDirection: resizeRef.current?.direction ?? null,
+              isMultiSelection: false,
+              selectedIds: state.selectedIds,
+              handleResizeStart,
+            });
+            handlesLayer.zIndex = 51;
+            content.addChild(handlesLayer);
+          } else {
+            const handlesLayer = createResizeHandlesLayer(
+              element,
+              state.zoom,
+              resizeRef.current?.direction ?? null,
+              state.selectedIds,
+              handleResizeStart,
+              handleRotateStart
+            );
+            handlesLayer.zIndex = 51;
+            content.addChild(handlesLayer);
+          }
         }
       }
     }

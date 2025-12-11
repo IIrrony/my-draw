@@ -42,6 +42,132 @@ export const createShape = async (
 ) => {
   const container = new Container()
 
+  // 组元素使用不同的定位方式，不使用 pivot 变换
+  if (element.type === "group") {
+    // 调试日志
+    console.log('=== 渲染组元素 ===')
+    console.log('组位置:', { x: element.x, y: element.y, width: element.width, height: element.height })
+    
+    // 组容器直接放在组的左上角，不旋转（组的 rotation 始终为 0）
+    container.position.set(element.x, element.y)
+    container.alpha = element.opacity
+    container.eventMode = interactionMode === "select" ? "static" : "passive"
+    container.cursor = interactionMode === "select" ? "move" : "grab"
+    container.hitArea = new Rectangle(0, 0, element.width, element.height)
+
+    // 递归渲染组内的子元素
+    if (element.children && element.children.length > 0) {
+      for (const child of element.children) {
+        console.log('子元素:', { 
+          type: child.type, 
+          x: child.x, 
+          y: child.y, 
+          width: child.width, 
+          height: child.height,
+          rotation: child.rotation,
+          '计算的中心位置': { x: child.x + child.width / 2, y: child.y + child.height / 2 }
+        })
+        
+        // 子元素使用相对于组左上角的坐标
+        // 为了支持子元素旋转，子容器需要设置 pivot 在中心
+        const childContainer = new Container()
+        
+        // 子容器 pivot 在子元素中心
+        childContainer.pivot.set(child.width / 2, child.height / 2)
+        // 子容器位置是子元素中心的位置（相对于组左上角）
+        childContainer.position.set(child.x + child.width / 2, child.y + child.height / 2)
+        childContainer.angle = child.rotation
+        childContainer.alpha = child.opacity
+        
+        // 根据子元素类型绘制内容
+        if (child.type === "shape") {
+          const fill = new Graphics()
+          const stroke = new Graphics()
+          const mask = new Graphics()
+          const fillColor = hexToNumber(child.fill)
+          const strokeColor = hexToNumber(child.stroke)
+
+          const drawPath = (target: Graphics) => {
+            switch (child.shape) {
+              case "rectangle":
+                target.roundRect(0, 0, child.width, child.height, Math.max(child.cornerRadius, 0))
+                break
+              case "circle":
+                target.ellipse(child.width / 2, child.height / 2, child.width / 2, child.height / 2)
+                break
+              case "triangle":
+                target.moveTo(child.width / 2, 0)
+                target.lineTo(child.width, child.height)
+                target.lineTo(0, child.height)
+                target.closePath()
+                break
+            }
+          }
+
+          const fillContainer = new Container()
+          drawPath(mask)
+          mask.fill({ color: 0xffffff, alpha: 1 })
+          mask.alpha = 0
+          mask.eventMode = "none"
+          fillContainer.addChild(mask)
+          fillContainer.mask = mask
+
+          drawPath(fill)
+          fill.fill({ color: fillColor, alpha: 1 })
+          fillContainer.addChild(fill)
+          childContainer.addChild(fillContainer)
+
+          if (child.strokeWidth > 0) {
+            drawPath(stroke)
+            const halfMinSize = Math.min(Math.abs(child.width), Math.abs(child.height)) / 2
+            const safeStrokeWidth = Math.max(0, Math.min(child.strokeWidth, halfMinSize))
+            if (safeStrokeWidth > 0) {
+              stroke.stroke({ width: safeStrokeWidth, color: strokeColor, alignment: 1, join: "round" })
+              childContainer.addChild(stroke)
+            }
+          }
+        } else if (child.type === "text") {
+          if (child.background !== "transparent") {
+            const bg = new Graphics()
+            bg.roundRect(0, 0, child.width, child.height, 12)
+            bg.fill({ color: hexToNumber(child.background), alpha: 0.8 })
+            childContainer.addChild(bg)
+          }
+          const text = new Text({
+            text: child.text,
+            style: new TextStyle({
+              fontFamily: child.fontFamily,
+              fontSize: child.fontSize,
+              fontWeight: `${child.fontWeight}` as TextStyleFontWeight,
+              fill: child.color,
+              align: child.align,
+              lineHeight: child.fontSize * child.lineHeight,
+              wordWrap: true,
+              wordWrapWidth: child.width,
+            }),
+          })
+          text.position.set(12, 12)
+          childContainer.addChild(text)
+        }
+        
+        childContainer.eventMode = interactionMode === "select" ? "static" : "passive"
+        childContainer.hitArea = new Rectangle(0, 0, child.width, child.height)
+        childContainer.on("pointerdown", (event) => {
+          if (interactionMode === "select") {
+            event.stopPropagation()
+            onPointerDown(event)
+          }
+        })
+        
+        container.addChild(childContainer)
+      }
+    }
+    
+    container.on("pointerdown", onPointerDown)
+    return container
+  }
+
+  // 非组元素使用 pivot 变换来支持旋转
   container.pivot.set(element.width / 2, element.height / 2)
   container.position.set(element.x + element.width / 2, element.y + element.height / 2)
   container.angle = element.rotation
@@ -52,28 +178,7 @@ export const createShape = async (
   container.cursor = interactionMode === "select" ? "move" : "grab"
   container.hitArea = new Rectangle(0, 0, element.width, element.height)
 
-  // 处理组元素
-  if (element.type === "group") {
-    // 移除背景和文本标签，仅保留子元素渲染功能
-
-    // 递归渲染组内的子元素
-    if (element.children && element.children.length > 0) {
-      for (const child of element.children) {
-        // 递归调用createShape渲染子元素
-        const childContainer = await createShape(child, interactionMode, (event) => {
-          // 当点击子元素时，只在 select 模式下处理
-          if (interactionMode === "select") {
-            event.stopPropagation()
-            onPointerDown(event)
-          }
-        })
-        // 子元素已经是相对于组的位置，直接添加到容器
-        container.addChild(childContainer)
-      }
-    }
-  }
-
-  else if (element.type === "shape") {
+  if (element.type === "shape") {
     const fill = new Graphics()
     const stroke = new Graphics()
     const mask = new Graphics()

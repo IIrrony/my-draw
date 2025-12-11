@@ -867,27 +867,72 @@ export const CanvasProvider = ({ children }: { children: ReactNode }) => {
       state.selectedIds.includes(el.id)
     )
 
-    // 计算选中元素的边界框
+    // 辅助函数：将角度转换为弧度
+    const toRadians = (degrees: number) => degrees * (Math.PI / 180)
+
+    // 辅助函数：计算旋转后的点坐标
+    const rotatePoint = (px: number, py: number, cx: number, cy: number, angle: number) => {
+      const rad = toRadians(angle)
+      const cos = Math.cos(rad)
+      const sin = Math.sin(rad)
+      const dx = px - cx
+      const dy = py - cy
+      return {
+        x: cx + dx * cos - dy * sin,
+        y: cy + dx * sin + dy * cos,
+      }
+    }
+
+    // 辅助函数：获取元素旋转后的四个角点
+    const getRotatedCorners = (el: CanvasElement) => {
+      const { x, y, width, height, rotation } = el
+      const cx = x + width / 2
+      const cy = y + height / 2
+      const corners = [
+        { x: x, y: y },
+        { x: x + width, y: y },
+        { x: x + width, y: y + height },
+        { x: x, y: y + height },
+      ]
+      if (!rotation || rotation === 0) return corners
+      return corners.map(corner => rotatePoint(corner.x, corner.y, cx, cy, rotation))
+    }
+
+    // 计算选中元素的边界框（考虑旋转）
     let minX = Infinity
     let minY = Infinity
     let maxX = -Infinity
     let maxY = -Infinity
 
     selectedElements.forEach(el => {
-      minX = Math.min(minX, el.x)
-      minY = Math.min(minY, el.y)
-      maxX = Math.max(maxX, el.x + el.width)
-      maxY = Math.max(maxY, el.y + el.height)
+      const corners = getRotatedCorners(el)
+      corners.forEach(corner => {
+        minX = Math.min(minX, corner.x)
+        minY = Math.min(minY, corner.y)
+        maxX = Math.max(maxX, corner.x)
+        maxY = Math.max(maxY, corner.y)
+      })
     })
 
-    // 创建组元素，保存子元素的完整副本（相对于组的位置）
+    // 创建组元素，保存子元素的完整副本
+    // 子元素的位置需要转换为相对于组边界框左上角的位置
+    // 对于旋转的元素，需要保持其中心点在组内的相对位置
     const groupId = createId()
-    const childElements = selectedElements.map(el => ({
-      ...deepCopy(el),
-      // 转换为相对于组的位置
-      x: el.x - minX,
-      y: el.y - minY
-    }))
+    const childElements = selectedElements.map(el => {
+      // 计算元素中心点
+      const elCenterX = el.x + el.width / 2
+      const elCenterY = el.y + el.height / 2
+      
+      // 计算中心点相对于组边界框左上角的位置
+      const relativeCenterX = elCenterX - minX
+      const relativeCenterY = elCenterY - minY
+      
+      return {
+        ...deepCopy(el),
+        x: relativeCenterX - el.width / 2,
+        y: relativeCenterY - el.height / 2,
+      }
+    })
 
     const group: GroupElement = {
       id: groupId,
