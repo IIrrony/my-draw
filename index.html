@@ -1,14 +1,121 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>my-draw</title>
-    <script type="module" crossorigin src="./assets/index-DCec8h7E.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-DUsX07f1.css">
+    <meta name="description" content="My Draw - 在线绘图工具" />
+    <meta name="theme-color" content="#f4f7fb" />
+    
+    <!-- 预连接关键资源 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- DNS 预解析 -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    
+    <!-- 🚀 LCP 优化：预加载关键 JS 模块 -->
+    <link rel="modulepreload" href="data:application/octet-stream;base64,aW1wb3J0IHsgU3RyaWN0TW9kZSB9IGZyb20gJ3JlYWN0JwppbXBvcnQgeyBjcmVhdGVSb290IH0gZnJvbSAncmVhY3QtZG9tL2NsaWVudCcKaW1wb3J0ICcuL2luZGV4LmNzcycKaW1wb3J0IEFwcCBmcm9tICcuL0FwcC50c3gnCmltcG9ydCB7IHByZWxvYWRDcml0aWNhbE1vZHVsZXMgfSBmcm9tICcuL3V0aWxzL3ByZWxvYWQnCgovLyDwn5qAIExDUCDkvJjljJbvvJrlnKjlupTnlKjmuLLmn5PlkI7pooTliqDovb3lhbbku5bmqKHlnZcKY3JlYXRlUm9vdChkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncm9vdCcpISkucmVuZGVyKAogIDxTdHJpY3RNb2RlPgogICAgPEFwcCAvPgogIDwvU3RyaWN0TW9kZT4sCikKCi8vIOWcqOmmluasoea4suafk+WujOaIkOWQjumihOWKoOi9veWFtuS7lui1hOa6kApwcmVsb2FkQ3JpdGljYWxNb2R1bGVzKCkK" />
+    
+    <!-- 关键 CSS 内联 - 避免渲染阻塞 -->
+    <style>
+      /* 关键渲染路径 CSS */
+      :root {
+        font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+        background-color: #f4f7fb;
+      }
+      body { margin: 0; min-height: 100vh; }
+      #root { height: 100vh; display: flex; flex-direction: column; }
+      
+      /* 🎯 LCP 优化：骨架屏模拟真实布局，减少 CLS */
+      .skeleton-loader {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background: #f4f7fb;
+      }
+      /* TopBar 骨架 - 这是 LCP 元素 */
+      .skeleton-topbar {
+        height: 64px;
+        background: rgba(255,255,255,0.9);
+        border-bottom: 1px solid #dbe1ef;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+      }
+      .skeleton-logo {
+        width: 80px;
+        height: 32px;
+        background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 4px;
+      }
+      .skeleton-buttons {
+        display: flex;
+        gap: 8px;
+      }
+      .skeleton-btn {
+        width: 64px;
+        height: 32px;
+        background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 6px;
+      }
+      .skeleton-content {
+        display: flex;
+        flex: 1;
+      }
+      .skeleton-sidebar {
+        width: 288px;
+        background: rgba(255,255,255,0.6);
+        border-right: 1px solid #dbe1ef;
+      }
+      .skeleton-main {
+        flex: 1;
+        background: #e5e7eb;
+      }
+      .skeleton-right {
+        width: 288px;
+        background: rgba(255,255,255,0.6);
+        border-left: 1px solid #dbe1ef;
+      }
+      @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+    </style>
+    
+    <title>My Draw - 在线绘图工具</title>
+    <script type="module" crossorigin src="./assets/index-Dcrpn4wP.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/react-vendor-DzEnchs7.js">
+    <link rel="modulepreload" crossorigin href="./assets/icons-a-f0ifAM.js">
+    <link rel="modulepreload" crossorigin href="./assets/pixi-Dc9Y-d6X.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-uiut2MBj.css">
   </head>
   <body>
-    <div id="root"></div>
+    <!-- 🎯 LCP 优化：骨架屏模拟真实布局结构 -->
+    <div id="root">
+      <div class="skeleton-loader">
+        <div class="skeleton-topbar">
+          <div class="skeleton-logo"></div>
+          <div class="skeleton-buttons">
+            <div class="skeleton-btn"></div>
+            <div class="skeleton-btn"></div>
+            <div class="skeleton-btn"></div>
+          </div>
+          <div class="skeleton-buttons">
+            <div class="skeleton-btn" style="width: 100px;"></div>
+          </div>
+        </div>
+        <div class="skeleton-content">
+          <div class="skeleton-sidebar"></div>
+          <div class="skeleton-main"></div>
+          <div class="skeleton-right"></div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
