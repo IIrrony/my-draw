@@ -27,8 +27,7 @@ import {
   NumberInput,
   RotationInput,
   Section,
-  ShapeControls,
-  TextControls,
+  ShapeControls
 } from "./components"
 
 /**
@@ -197,13 +196,7 @@ export const RightPanel = () => {
       updateElement(id, changes as Partial<CanvasElement>)
     })
   }
-  // 批量处理文本元素
-  const handleTextsChange = (changes: Partial<TextElement>) => {
-    if (state.selectedIds.length === 0) return
-    state.selectedIds.forEach((id) => {
-      updateElement(id, changes as Partial<CanvasElement>)
-    })
-  }
+
   // 批量处理图片元素
   const handleImagesChange = (changes: Partial<ImageElement>) => {
     if (state.selectedIds.length === 0) return
